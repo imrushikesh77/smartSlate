@@ -3,45 +3,209 @@ import { aiConfig } from "../config/setupGemini.js";
 
 const genAI = new GoogleGenerativeAI(aiConfig.gemeni.apiKey);
 
-const aiChat = async (dict_of_vars_str, img) => {
+const aiChat = async (img) => {
   const model = genAI.getGenerativeModel({
     model: aiConfig.gemeni.model,
     safetySettings: aiConfig.gemeni.safetySettings,
   });
 
   const prompt = `
-    You have been given an image with some mathematical expressions, equations, or graphical problems, and you need to solve them.
-    Note: Use the PEMDAS rule for solving mathematical expressions. PEMDAS stands for the Priority Order: Parentheses, Exponents, Multiplication and Division (from left to right), Addition and Subtraction (from left to right). Parentheses have the highest priority, followed by Exponents, then Multiplication and Division, and lastly Addition and Subtraction.
-    
-    For example:
-    Q. 2 + 3 * 4
-    (3 * 4) => 12, 2 + 12 = 14.
-    Q. 2 + 3 + 5 * 4 - 8 / 2
-    5 * 4 => 20, 8 / 2 => 4, 2 + 3 => 5, 5 + 20 => 25, 25 - 4 => 21.
+                  Analyze the provided image and return ONLY valid JSON (no markdown/text) using this structure:
+                  {
+                    "results": [
+                      {
+                        "title": "<Short Problem Type>",
+                        "question": "<Problem Statement>",
+                        "description": "<Brief Context>",
+                        "steps": ["Step 1 explanation", "Step 2 explanation..."],
+                        "explanation": "<Final Conclusion>",
+                        "result": "<Final Answer>"
+                      }
+                    ]
+                  }
 
-    YOU CAN HAVE FIVE TYPES OF EQUATIONS/EXPRESSIONS IN THIS IMAGE, AND ONLY ONE CASE SHALL APPLY EVERY TIME:
-    Following are the cases:
+                  Categories (select only ONE applicable case per image):
 
-    1. Simple mathematical expressions like 2 + 2, 3 * 4, 5 / 6, 7 - 8, etc.: In this case, solve and return the answer in the format of a LIST OF ONE DICT [{"expr": given expression, "result": calculated answer}].
+                  1. Simple Arithmetic (e.g., "2+3*4"):
+                    - Solve using PEMDAS
+                    - Example: 
+                      {
+                        "results": [{
+                          "title": "Arithmetic Calculation",
+                          "question": "2+3*4",
+                          "description": "Solving expression using order of operations",
+                          "steps": [
+                            "Multiply 3 × 4 = 12",
+                            "Add 2 + 12 = 14"
+                          ],
+                          "result": 14
+                        }]
+                      }
 
-    2. Set of Equations like x^2 + 2x + 1 = 0, 3y + 4x = 0, 5x^2 + 6y + 7 = 12, etc.: In this case, solve for the given variable, and the format should be a COMMA SEPARATED LIST OF DICTS, with dict 1 as {"expr": "x", "result": 2, "assign": true} and dict 2 as {"expr": "y", "result": 5, "assign": true}. This example assumes x was calculated as 2, and y as 5. Include as many dicts as there are variables.
+                  2. System of Equations (e.g., "x²+2x+1=0", "3y+4x=0"):
+                    - Solve ALL variables
+                    - Return ONE entry per variable
+                    - Example:
+                      {
+                        "results": [{
+                          "title": "System of Equations",
+                          "question": "x² + 2x + 1 = 0, 3y + 4x = 0",
+                          "description": "Solving simultaneous equations",
+                          "steps": [
+                            "Substitute x = -1 into second equation",
+                            "Solve 3y + 4(-1) = 0 → y = 0.75"
+                          ],
+                          "explanation": "Solutions satisfy all equations",
+                          "result": "x = -1, y = 0.75"
+                        }]
+                      }
 
-    3. Assigning values to variables like x = 4, y = 5, z = 6, etc.: In this case, assign values to variables and return another key in the dict called {"assign": true}, keeping the variable as "expr" and the value as "result" in the original dictionary. RETURN AS A LIST OF DICTS.
+                  3. Variable Assignment (e.g., "x=4"):
+                    - Single variable only
+                    - Example:
+                      {
+                        "results": [{
+                          "title": "Variable Assignment",
+                          "question": "x = 4",
+                          "description": "Setting value to variable",
+                          "steps": ["Direct assignment operation"],
+                          "result": 4
+                        }]
+                      }
 
-    4. Analyzing Graphical Math problems, which are word problems represented in drawing form, such as cars colliding, trigonometric problems, problems on the Pythagorean theorem, adding runs from a cricket wagon wheel, etc. These will have a drawing representing some scenario and accompanying information with the image. PAY CLOSE ATTENTION TO DIFFERENT COLORS FOR THESE PROBLEMS. You need to return the answer in the format of a LIST OF ONE DICT [{"expr": given expression, "result": calculated answer}].
+                  4. Graphical Problem (geometry/physics diagrams):
+                    - Example:
+                      {
+                        "results": [{
+                          "title": "Pythagorean Theorem",
+                          "question": "Find diagonal of right triangle with legs 3 and 4",
+                          "description": "Right triangle with legs 3 and 4",
+                          "steps": [
+                            "Apply formula: c = √(a² + b²)",
+                            "Calculate √(9 + 16) = √25 = 5"
+                          ],
+                          "result": 5
+                        }]
+                      }
+                  
+                  5. **Calculus** (e.g., integrals, derivatives):  
+                    - Solve analytically/numerically.  
+                    - Example: 
+                    {
+                      "results": [{
+                        "title": "Numerical Integration",
+                        "question": "∫₀¹ sin(x²) dx",
+                        "description": "Approximating ∫₀¹ sin(x²) dx",
+                        "steps": [
+                          "Use Taylor expansion: sin(x²) ≈ x² - x⁶/6 + x¹⁰/120",
+                          "Integrate term-wise: ∫(x² - x⁶/6 + x¹⁰/120)dx from 0 to 1",
+                          "Calculate: [x³/3 - x⁷/42 + x¹¹/1320]₀¹ = 0.310"
+                        ],
+                        "result": 0.310
+                      }]
+                    }
+                    {
+                      "results": [{
+                        "title": "Inegration Solution",
+                        "question": "∫₀¹ x² dx",
+                        "description": "Integrating polynomial function",
+                        "steps": [
+                          "Apply power rule: ∫ x² dx",
+                          "Calculate integral: 1/3 x³",
+                          "Apply limits: 1/3 - 0 = 1/3"
+                        ],
+                        "result": "1/3"
+                      }]
+                    }
+                    {
+                      "results": [{
+                        "title": "Derivative Solution",
+                        "question": "d/dx x²",
+                        "description": "Differentiating polynomial function",
+                        "steps": [
+                          "Apply power rule: d/dx x²",
+                          "Calculate derivative: 2x"
+                        ],
+                        "result": "2x"
+                      }]
+                    }
+                    
+                  5. Abstract Concept (non-mathematical images):
+                    - Example:
+                      {
+                        "results": [{
+                          "title": "Symbol Interpretation",
+                          "description": "Recognizing common symbolism",
+                          "explanation": "Traditional representation of affection",
+                          "result": "Love"
+                        }]
+                      }
 
-    5. Detecting Abstract Concepts that a drawing might show, such as love, hate, jealousy, patriotism, or a historic reference to war, invention, discovery, quote, etc. USE THE SAME FORMAT AS OTHERS TO RETURN THE ANSWER, where "expr" will be the explanation of the drawing, and "result" will be the abstract concept.
+                  1. **Numerical Approximations**:
+                    - Always compute numerical results for non-elementary integrals.
+                    - Use **Simpson's Rule** or **Taylor Series** for approximations.
+                    - For Simpson's Rule:
+                      - Use at least 4 subdivisions for accuracy.
+                      - Show intermediate calculations.
+                    - For Taylor Series:
+                      - Include at least 4 terms for sufficient precision.
+                      - Explicitly write the expanded series.
 
-    Analyze the equation or expression in this image and return the answer according to the given rules:
-    Make sure to use extra backslashes for escape characters like \\f -> \\\\f, \\n -> \\\\n, etc.
-    Here is a dictionary of user-assigned variables. If the given expression has any of these variables, use its actual value from this dictionary accordingly: ${dict_of_vars_str}.
-    DO NOT USE BACKTICKS OR MARKDOWN FORMATTING.
-    PROPERLY QUOTE THE KEYS AND VALUES IN THE DICTIONARY FOR EASIER PARSING WITH Python's ast.literal_eval.
-  `;
+                  2. **Calculation Steps**:
+                    - Show detailed steps for all calculations.
+                    - Include intermediate results (e.g., partial sums, evaluated terms).
+                    - Clearly state the method used (e.g., "Using Simpson's Rule with n=4").
+
+                  3. **Precision and Rounding**:
+                    - Round final results to **3 decimal places**.
+                    - Maintain higher precision during intermediate steps (at least 6 decimal places).
+
+                  4. **Error Bounds**:
+                    - Include error bounds or accuracy estimates where applicable.
+                    - For Simpson's Rule, calculate the error term: \( E = -\frac{(b-a)^5}{180n^4} f^{(4)}(\\xi) \).
+                    - For Taylor Series, estimate the remainder term.
+
+                  Structure Rules:
+                    - At least ONE of (steps/explanation) required
+                    - Title max 3 words
+                    - Description max 12 words
+                    - Result can be numeric/string
+                    - Steps as array of 1-5 items
+                    - Explanation as single sentence
+
+                  Strict Rules:
+                  1. NEVER use markdown/backticks in JSON
+                  2. For systems of equations:
+                    - Return ALL variables separately
+                    - Verify solutions satisfy ALL equations
+                  3. Numbers must be numeric (not quoted)
+                  4. Decimals allowed but fractions preferred
+                  5. If multiple cases exist, choose the FIRST applicable one
+                  6. If unsure, return abstract type with "result": "Unknown"
+                  7. Never combine different case types
+                  8. Ensure proper JSON syntax:
+                    - Double quotes only
+                    - No trailing commas
+                    - No comments
+                    - Valid escape characters
+                  9. Do not return any additional information
+                  10. For systems of equations, verify solutions satisfy ALL equations.
+                  11. For calculus, return the result of the integral or derivative.
+                  12. For graphical problems, return the result of the problem.
+                  13. For abstract concepts, return the result of the concept.
+                  14. For variable assignment, return the assigned value.
+
+                  Strict Prohibitions:
+                    - No nested objects
+                    - No extra fields beyond specified
+                    - No LaTeX formatting
+                    - No code blocks
+                    - No undefined/null values
+                  `;
 
   try {
-    const base64Data = img.startsWith('data:image/png;base64,') 
-      ? img.replace('data:image/png;base64,', '') 
+    const base64Data = img.startsWith('data:image/png;base64,')
+      ? img.replace('data:image/png;base64,', '')
       : img;
     const image = {
       inlineData: {
@@ -50,14 +214,18 @@ const aiChat = async (dict_of_vars_str, img) => {
       },
     }
     const result = await model.generateContent([prompt, image]);
-    const chatResponse = result?.response?.text();
-    const parsedResponse = JSON.parse(chatResponse);
-    const formattedResponse = parsedResponse.map(answer => ({
-      expr: answer.expr,
-      result: answer.result.toString(), // Ensure result is a string
-      assign: answer.assign ? true : false // Convert to string as per your interface
-  }));
-    return { result: formattedResponse };
+    const chatText = result?.response?.text();
+    console.log(chatText)
+    // Clean the response before parsing
+    const jsonString = chatText
+      .replace(/```json/gi, '')  // Remove JSON code block markers
+      .replace(/```/gi, '')      // Remove any remaining backticks
+      .trim();
+
+    // console.log("Cleaned JSON:", jsonString);
+    const parsedResponse = JSON.parse(jsonString).results;
+    console.log("Parsed response", parsedResponse);
+    return { result: parsedResponse[0] };
   } catch (error) {
     console.log("Error", error);
     return { Error: "Uh oh! Caught error while fetching data, try again later...!" };
