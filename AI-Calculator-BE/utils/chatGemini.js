@@ -216,7 +216,7 @@ const aiChat = async (img) => {
     }
     const result = await model.generateContent([prompt, image]);
     const chatText = result?.response?.text();
-    console.log(chatText)
+    // console.log(chatText)
     // Clean the response before parsing
     const jsonString = chatText
       .replace(/```json/gi, '')  // Remove JSON code block markers
