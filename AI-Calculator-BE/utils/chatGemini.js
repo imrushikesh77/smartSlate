@@ -3,7 +3,7 @@ import { aiConfig } from "../config/setupGemini.js";
 
 const genAI = new GoogleGenerativeAI(aiConfig.gemeni.apiKey);
 
-const aiChat = async (img) => {
+const aiChat = async (img, comment) => {
   const model = genAI.getGenerativeModel({
     model: aiConfig.gemeni.model,
     safetySettings: aiConfig.gemeni.safetySettings,
@@ -214,7 +214,7 @@ const aiChat = async (img) => {
         mimeType: "image/png",
       },
     }
-    const result = await model.generateContent([prompt, image]);
+    const result = await model.generateContent([prompt, image, comment]);
     const chatText = result?.response?.text();
     // console.log(chatText)
     // Clean the response before parsing

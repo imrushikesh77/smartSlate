@@ -1,8 +1,8 @@
 import { aiChat } from "../utils/chatGemini.js"
 
 const postCalculate = async (req, res) => {
-    const { image } = req.body;
-    const aiReply = await aiChat(image);
+    const { image, comment } = req.body;
+    const aiReply = await aiChat(image, comment);
 
     if (aiReply.Error) {
         return res.status(500).json({ Error: aiReply.Error });
