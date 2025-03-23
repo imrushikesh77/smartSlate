@@ -74,6 +74,7 @@ const aiChat = async (img) => {
                       }
 
                   4. Graphical Problem (geometry/physics diagrams):
+                    - Add units where applicable
                     - Example:
                       {
                         "results": [{
